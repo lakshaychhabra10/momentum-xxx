@@ -29,6 +29,8 @@ def run_momentum_strategy(price_data_path, test1_period, test2_period, hold_peri
     price_data.index = pd.to_datetime(price_data.index, dayfirst=True).date
     price_data = price_data.dropna(how="all")
 
+    price_data = price_data.astype(np.float32)
+
     # Sort and filter data
     price_data = price_data[(price_data.index >= begin) & (price_data.index <= finish)].sort_index()
     available_dates = price_data.index.tolist()
@@ -45,7 +47,7 @@ def run_momentum_strategy(price_data_path, test1_period, test2_period, hold_peri
 
     while True:
         # Check if we have enough data left
-        if start_idx + min_required_dates >= len(available_dates):
+        if start_idx + min_required_dates + 1 >= len(available_dates):
             break
         
         # Define period indices
@@ -121,11 +123,11 @@ def run_momentum_strategy(price_data_path, test1_period, test2_period, hold_peri
 #            'stocks': ','.join(hold_results['selected_stocks']),
             'start_date': hold_results['start_date'],
             'end_date': hold_results['end_date'],
-            'avg_return': hold_results['avg_return'],
-            'portfolio_return': hold_results['portfolio_return'],
-            'outperformance': hold_results['outperformance'],
+            'universe_return': round(hold_results['universe_return'], 2),
+            'portfolio_return': round(hold_results['portfolio_return'],2),
+            'outperformance': round(hold_results['outperformance'],2),
 #            'total_stocks': hold_results['total_stocks'],
-            'total_minimum_investment_amount': hold_results['total_minimum_investment_amount'],
+            'total_minimum_investment_amount': round(hold_results['total_minimum_investment_amount'],2), #hold_results['total_minimum_investment_amount'],
 #            'trading_costs': hold_results['trading_costs'],
 #            'num_upper_circuit_stocks': hold_results['num_upper_circuit_stocks'],
 #            'num_lower_circuit_stocks': hold_results['num_lower_circuit_stocks'],
@@ -148,7 +150,7 @@ def run_momentum_strategy(price_data_path, test1_period, test2_period, hold_peri
     # Appending columns in DataFrame
     if not result_df.empty:
         result_df['portfolio_cum_return'] = (1 + result_df['portfolio_return']).cumprod()
-        result_df['avg_cum_return'] = (1 + result_df['avg_return']).cumprod()
+        result_df['universe_cum_return'] = (1 + result_df['universe_return']).cumprod()
         result = result_df
 
         # Calculate consecutive overlap

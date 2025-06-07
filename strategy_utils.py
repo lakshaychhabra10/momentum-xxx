@@ -110,7 +110,7 @@ def calculate_trading_cost(buy_val_per_stock: pd.Series, sell_val_per_stock: pd.
             stamp_duty = 0.003/100 * buy_val
             gst = 18/100 * (brokerage + exch_txn_charges + sebi_charges)
 
-            cost = brokerage + stt + exch_txn_charges + sebi_charges + stamp_duty + gst
+            cost = int(brokerage + stt + exch_txn_charges + sebi_charges + stamp_duty + gst)
 
         else:
             # Delivery (CNC)
@@ -122,7 +122,7 @@ def calculate_trading_cost(buy_val_per_stock: pd.Series, sell_val_per_stock: pd.
             stamp_duty = 0.015/100 * buy_val
             gst = 18/100 * (brokerage + exch_txn_charges + sebi_charges)
 
-            cost = brokerage + stt + exch_txn_charges + sebi_charges + stamp_duty + gst
+            cost = int(brokerage + stt + exch_txn_charges + sebi_charges + stamp_duty + gst)
 
         total_cost += cost
 
@@ -390,50 +390,58 @@ def calculate_period_results(price_data, start_date, end_date,  pct_selection = 
             result = {
                 'selected_stocks': selected_stocks,
                 'num_selected_stocks': len(selected_stocks),
+                'universe_return': avg_return,
+                'selected_return': selected_return,
+                'total_stocks': len(total_stocks)
             }
         
         if test2:
-            if eligible_stocks is not None:
+            if eligible_stocks:
                 eligible_stocks = [stock for stock in eligible_stocks if stock in combined_prices.index]
                 filtered_returns = returns[eligible_stocks]
                 selected_stocks = filtered_returns[filtered_returns >= avg_return].index.tolist()
-                if not selected_stocks:  # Check if selected_stocks is an empty list
-                    selected_stocks = None
                 selected_return = filtered_returns[filtered_returns >= avg_return].mean()
 
-                        # Initialize result dictionary
+            # Initialize result dictionary
             result = {
                 'selected_stocks': selected_stocks,
                 'num_selected_stocks': len(selected_stocks),
+                'universe_return': avg_return,
+                'eligible_stocks': eligible_stocks,
+                'filtered_returns': filtered_returns,
+                'selected_return': selected_return,
+                'total_stocks': len(total_stocks)
             }
         
         if hold:
 
-            if eligible_stocks is None:
-                    result = {
-                    'start_date': start_date,
-                    'end_date': end_date,
-                    'avg_return': avg_return,
-                    'total_stocks': len(total_stocks),
-                    'selected_stocks': None,
-                    'num_selected_stocks': 0,
-                    'portfolio_return': 0,
-                    'outperformance': -(avg_return),
-                    'weighted_portfolio_return': 0,
-                    'total_minimum_investment_amount': 0,
-                    'trading_costs': 0,
-                    'num_upper_circuit_stocks': 0,
-                    'upper_circuit_stocks': [],
-                    'num_lower_circuit_stocks': 0,
-                    'lower_circuit_stocks': [],
-                    '%_of_positive_stocks': 0,
-                    '%_of_negative_stocks': 0,
-                    'avg_positive_return': 0,
-                    'avg_negative_return': 0,
-                    'stock_price_ceiling': stock_price_ceiling, 
-                }
+            temp_result = {
+            'start_date': start_date,
+            'end_date': end_date,
+            'universe_return': avg_return,
+            'total_stocks': len(total_stocks),
+            'selected_stocks': [],
+            'num_selected_stocks': 0,
+            'portfolio_return': 0,
+            'outperformance': -(avg_return),
+            'weighted_portfolio_return': 0,
+            'total_minimum_investment_amount': 0,
+            'trading_costs': 0,
+            'num_upper_circuit_stocks': 0,
+            'upper_circuit_stocks': [],
+            'num_lower_circuit_stocks': 0,
+            'lower_circuit_stocks': [],
+            '%_of_positive_stocks': 0,
+            '%_of_negative_stocks': 0,
+            'avg_positive_return': 0,
+            'avg_negative_return': 0,
+            'stock_price_ceiling': stock_price_ceiling,
+            }
 
-            if eligible_stocks is not None:
+            if not eligible_stocks:
+                return temp_result
+            
+            if eligible_stocks:
                 eligible_stocks = [stock for stock in eligible_stocks if stock in combined_prices.index]
                 filtered_returns = returns[eligible_stocks]
 
@@ -452,14 +460,23 @@ def calculate_period_results(price_data, start_date, end_date,  pct_selection = 
 
                 # Filter stocks based on price ceiling
                 # Option 1: Using list comprehension with a conditional check
-                if stock_price_ceiling is not None:
+                if stock_price_ceiling:
                     filtered_stocks = [stock for stock in eligible_stocks 
                                     if stock in current_open_data and current_open_data[stock] < stock_price_ceiling]
                 else:
                     filtered_stocks = eligible_stocks
 
+                # If no stocks are left after filtering, return early with temp_result
+                if not filtered_stocks:
+                    temp_result.update({
+                        'num_upper_circuit_stocks': 0,
+                        'upper_circuit_stocks': [],
+                        'num_lower_circuit_stocks': 0,
+                        'lower_circuit_stocks': [],
+                    })
+                    return temp_result
+
                 # Calculate open returns
-                
                 open_returns = (current_open_data / prev_close_data - 1)
 
                 # Identify stocks hitting upper and lower circuits
@@ -477,6 +494,16 @@ def calculate_period_results(price_data, start_date, end_date,  pct_selection = 
                 num_upper_circuit_stocks = len(upper_circuit_stocks)
                 num_lower_circuit_stocks = len(lower_circuit_stocks)
 
+                # If no stocks are selected after filtering, return early with temp_result
+                if not selected_stocks:
+                    temp_result.update({
+                        'num_upper_circuit_stocks': num_upper_circuit_stocks,
+                        'upper_circuit_stocks': upper_circuit_stocks,
+                        'num_lower_circuit_stocks': num_lower_circuit_stocks,
+                        'lower_circuit_stocks': lower_circuit_stocks,
+                    })
+                    return temp_result
+                
                 # Calculate portfolio stock prices
                 portfolio_stock_prices = start_prices[selected_stocks]
 
@@ -506,7 +533,7 @@ def calculate_period_results(price_data, start_date, end_date,  pct_selection = 
                 result = {
                     'start_date': start_date,
                     'end_date': end_date,
-                    'avg_return': avg_return,
+                    'universe_return': avg_return,
                     'total_stocks': len(total_stocks),
                     'selected_stocks': selected_stocks,
                     'num_selected_stocks': len(selected_stocks),
@@ -530,4 +557,3 @@ def calculate_period_results(price_data, start_date, end_date,  pct_selection = 
 
     except KeyError as e:
         return {'error': f"Date {e} not found in price data."}
-# %%
