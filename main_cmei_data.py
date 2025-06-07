@@ -23,7 +23,7 @@ def test_multiple_combinations(price_data_path, begin=datetime(2019, 3, 28).date
     """
 
     # Generate all combinations
-    all_combinations = combinations_config.combinations[0:5000]#list(product(test1_range, test2_range, hold_range, pct_selection, stock_price_ceiling))
+    all_combinations = combinations_config.combinations[0:10]#list(product(test1_range, test2_range, hold_range, pct_selection, stock_price_ceiling))
     total_combinations = len(all_combinations)
     print(f"Total combinations to process: {total_combinations}")
 
@@ -50,7 +50,7 @@ def test_multiple_combinations(price_data_path, begin=datetime(2019, 3, 28).date
     password = 'Lakshay%4012'  # Update with your MySQL password
     port = 3306
     host = 'localhost'
-    database = 'cmie_momentum'  # Update with your database name
+    database = 'test'  # Update with your database name
 
     # Create database engine and table
     engine = create_database_engine(user, password, host, port, database)
@@ -96,7 +96,7 @@ def test_multiple_combinations(price_data_path, begin=datetime(2019, 3, 28).date
 
         # Calculate outperformance
         portfolio_cum_return = results_df['portfolio_cum_return'].iloc[-1] - 1
-        avg_cum_return = results_df['avg_cum_return'].iloc[-1] - 1
+        avg_cum_return = results_df['universe_cum_return'].iloc[-1] - 1
         outperformance = portfolio_cum_return - avg_cum_return
 
         # Calculate average minimum investment and trading cost
@@ -104,23 +104,23 @@ def test_multiple_combinations(price_data_path, begin=datetime(2019, 3, 28).date
 
         summary_data.append({
             'Strategy_Name': strategy_name,
-            'Portfolio_Returns': portfolio_cum_return,
-            'Avg_Returns': avg_cum_return,
-            'Outperformance': outperformance,
+            'Portfolio_Returns': round(portfolio_cum_return,2),
+            'Universe_Returns': round(avg_cum_return,2),
+            'Outperformance': round(outperformance,2),
             'Strategy_Commence_Date': results_df['start_date'].iloc[0],
             'Strategy_End_Date': results_df['end_date'].iloc[-1],
             'Num_Processes': results_df['ProcessID'].max(),  # Number of periods processed
-            'Avg_Portfolio_Return': results_df['portfolio_return'].mean(),
-            'Avg_Outperformance': results_df['outperformance'].mean(),
-            'Average_Minimum_Investment': avg_minimum_investment,
-            'Outperformance_times_%' : (results_df['outperformance'] > 0).sum() / len(results_df)
+            'Avg_Portfolio_Return': round(results_df['portfolio_return'].mean(),4),
+            'Avg_Outperformance': round(results_df['outperformance'].mean(),4),
+            'Average_Minimum_Investment': int(avg_minimum_investment), #avg_minimum_investment,
+            'Outperformance_times_%' : round( (results_df['outperformance'] > 0).sum() / len(results_df) , 2)
         })
 
     # Create summary dataframe
     summary_df = pd.DataFrame(summary_data)
 
     # Save summary to Excel
-    with pd.ExcelWriter(r'E:\Internship_Hashbrown\self\Relative Strength Momentum Strategy\Prototype\Results\momentum_strategy_results.xlsx') as writer:
+    with pd.ExcelWriter('momentum_strategy_results.xlsx') as writer:
         summary_df.to_excel(writer, sheet_name='Summary', index=False)
 
     print("Analysis complete. Summary saved to momentum_strategy_results.xlsx")
@@ -134,7 +134,7 @@ def test_multiple_combinations(price_data_path, begin=datetime(2019, 3, 28).date
     }
 
 if __name__ == "__main__":
-    price_data_path = r'E:\Internship_Hashbrown\self\Relative Strength Momentum Strategy\Source\CMIE_Price_Data_Cleaned.csv'
+    price_data_path = r'cmie\CMIE_Price_Data_Cleaned.csv'
     begin = datetime(2014, 1, 1).date()
     finish = datetime(2024, 12, 31).date()
 
