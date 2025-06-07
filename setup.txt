@@ -1,0 +1,12 @@
+DateTime==5.5
+greenlet==3.2.3
+numpy==2.2.6
+pandas==2.3.0
+python-dateutil==2.9.0.post0
+pytz==2025.2
+setuptools==80.9.0
+six==1.17.0
+SQLAlchemy==2.0.41
+typing_extensions==4.14.0
+tzdata==2025.2
+zope.interface==7.2
