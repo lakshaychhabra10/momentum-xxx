@@ -4,9 +4,15 @@ from datetime import datetime
 import pandas as pd
 from itertools import product
 from multiprocessing import Pool
-from database import create_database_engine, create_strategy_table, write_strategy_results, read_strategy_results
+from database import create_database_engine, write_strategy_results
 from utils import run_strategy_wrapper
 import combinations_config
+import cProfile
+import pstats
+import os
+import time
+from tqdm import tqdm
+import sys
 
 def test_multiple_combinations(price_data_path, begin=datetime(2019, 3, 28).date(), finish=datetime(2025, 3, 28).date()):
     """
@@ -23,12 +29,12 @@ def test_multiple_combinations(price_data_path, begin=datetime(2019, 3, 28).date
     """
 
     # Generate all combinations
-    all_combinations = combinations_config.combinations[0:10]#list(product(test1_range, test2_range, hold_range, pct_selection, stock_price_ceiling))
+    all_combinations = combinations_config.combinations[0:5]#list(product(test1_range, test2_range, hold_range, pct_selection, stock_price_ceiling))
     total_combinations = len(all_combinations)
     print(f"Total combinations to process: {total_combinations}")
 
     # Calculate dynamic batch size
-    base_batch_size = 500  # Base size, divisible by 5 for 5 cores
+    base_batch_size = 10  # Base size, divisible by 5 for 5 cores
     threshold = 10000  # Threshold for scaling batch size
     max_batch_size = 5000  # Cap to keep memory usage under 500 MB
 
@@ -56,87 +62,68 @@ def test_multiple_combinations(price_data_path, begin=datetime(2019, 3, 28).date
     engine = create_database_engine(user, password, host, port, database)
     # create_strategy_table(engine)  # Uncomment if table needs to be created
 
-    # Dictionary to store references to results (confirmation of storage)
-    strategy_results = {}
 
-    # Process combinations in batches
-    for batch_start in range(0, len(all_combinations), batch_size):
+    summary_data = []  # Final summary for all batches
+
+    for batch_start in tqdm(range(0, len(all_combinations), batch_size), desc="Processing batches"):
         batch_combinations = all_combinations[batch_start:batch_start + batch_size]
         args_list = [(price_data_path, test1, test2, hold, pct, ceiling, begin, finish)
-                     for test1, test2, hold, pct, ceiling in batch_combinations]
+                    for test1, test2, hold, pct, ceiling in batch_combinations]
 
-        # Use multiprocessing Pool with 5 processes to utilize 5 cores
         print(f"Processing batch {batch_start // batch_size + 1} of {(len(all_combinations) - 1) // batch_size + 1}...")
 
         try:
-            with Pool(processes=5) as pool:  # Use 5 cores
-                results = pool.map(run_strategy_wrapper, args_list)
+            with Pool(processes=5) as pool:
+                results = list(tqdm(pool.imap(run_strategy_wrapper, args_list), total=len(args_list), desc="Running strategies"))
 
-            # Insert batch results into MySQL
-            for strategy_name, results_df in results:
-                if isinstance(results_df, pd.DataFrame) and not results_df.empty:
-                    write_strategy_results(results_df, engine)
-                    strategy_results[strategy_name] = "Stored in DB"
-                    print(f"Completed strategy: {strategy_name}, stored in MySQL database")
-                else:
-                    print(f"Strategy {strategy_name} failed or returned no results: {results_df}")
+            valid_results = [(name, df) for name, df in results if isinstance(df, pd.DataFrame) and not df.empty]
+
+            if valid_results:
+                combined_df = pd.concat([df for _, df in valid_results], ignore_index=True)
+                write_strategy_results(combined_df, engine)
+                print(f"✅ Stored {len(valid_results)} strategy results in batch {batch_start // batch_size + 1}.")
+
+                # ✅ Create summary just for this batch
+                for strategy_name, df in valid_results:
+                    if df.empty:
+                        continue
+                    portfolio_cum_return = df['portfolio_cum_return'].iloc[-1] - 1
+                    avg_cum_return = df['universe_cum_return'].iloc[-1] - 1
+                    outperformance = portfolio_cum_return - avg_cum_return
+                    avg_minimum_investment = df['total_minimum_investment_amount'].mean()
+
+                    summary_data.append({
+                        'Strategy_Name': strategy_name,
+                        'Portfolio_Returns': round(portfolio_cum_return, 2),
+                        'Universe_Returns': round(avg_cum_return, 2),
+                        'Outperformance': round(outperformance, 2),
+                        'Strategy_Commence_Date': df['start_date'].iloc[0],
+                        'Strategy_End_Date': df['end_date'].iloc[-1],
+                        'Num_Processes': df['ProcessID'].max(),
+                        'Avg_Portfolio_Return': round(df['portfolio_return'].mean(), 4),
+                        'Avg_Outperformance': round(df['outperformance'].mean(), 4),
+                        'Average_Minimum_Investment': int(avg_minimum_investment),
+                        'Outperformance_times_%': round((df['outperformance'] > 0).sum() / len(df), 2)
+                    })
+            else:
+                print("⚠️ No valid strategy results to store in this batch.")
+
+            failed_strategies = [name for name, df in results if not isinstance(df, pd.DataFrame) or df.empty]
+            if failed_strategies:
+                print(f"❌ Failed or empty: {failed_strategies}")
+
         except Exception as e:
-            print(f"Error processing batch {batch_start // batch_size + 1}: {str(e)}. Skipping this batch...")
+            print(f"💥 Error in batch {batch_start // batch_size + 1}: {str(e)}. Skipping this batch.")
             continue
 
-    # Compile summary statistics
-    summary_data = []
-
-    for strategy_name in strategy_results.keys():
-        # Query the database for this strategy's results
-        results_df = read_strategy_results(strategy_name, engine)
-
-        if results_df.empty:
-            continue
-
-        # Calculate outperformance
-        portfolio_cum_return = results_df['portfolio_cum_return'].iloc[-1] - 1
-        avg_cum_return = results_df['universe_cum_return'].iloc[-1] - 1
-        outperformance = portfolio_cum_return - avg_cum_return
-
-        # Calculate average minimum investment and trading cost
-        avg_minimum_investment = results_df['total_minimum_investment_amount'].mean()
-
-        summary_data.append({
-            'Strategy_Name': strategy_name,
-            'Portfolio_Returns': round(portfolio_cum_return,2),
-            'Universe_Returns': round(avg_cum_return,2),
-            'Outperformance': round(outperformance,2),
-            'Strategy_Commence_Date': results_df['start_date'].iloc[0],
-            'Strategy_End_Date': results_df['end_date'].iloc[-1],
-            'Num_Processes': results_df['ProcessID'].max(),  # Number of periods processed
-            'Avg_Portfolio_Return': round(results_df['portfolio_return'].mean(),4),
-            'Avg_Outperformance': round(results_df['outperformance'].mean(),4),
-            'Average_Minimum_Investment': int(avg_minimum_investment), #avg_minimum_investment,
-            'Outperformance_times_%' : round( (results_df['outperformance'] > 0).sum() / len(results_df) , 2)
-        })
-
-    # Create summary dataframe
+    # ✅ After all batches
     summary_df = pd.DataFrame(summary_data)
-
-    # Save summary to Excel
-    with pd.ExcelWriter('momentum_strategy_results.xlsx') as writer:
-        summary_df.to_excel(writer, sheet_name='Summary', index=False)
-
-    print("Analysis complete. Summary saved to momentum_strategy_results.xlsx")
-    print("Detailed results are stored in the MySQL database table 'strategy_results'.")
-    print("\nSummary Results:")
-    print(summary_df)
-
-    return {
-        'strategy_results': strategy_results,  # Dictionary of storage confirmations
-        'summary_results': summary_df         # Summary dataframe
-    }
+    summary_df.to_excel('momentum_strategy_results.xlsx', index=False)
+    print("📦 Final summary saved to momentum_strategy_results.xlsx")
 
 if __name__ == "__main__":
     price_data_path = r'cmie\CMIE_Price_Data_Cleaned.csv'
     begin = datetime(2014, 1, 1).date()
     finish = datetime(2024, 12, 31).date()
 
-    # Run the multiple combinations test
-    results = test_multiple_combinations(price_data_path, begin, finish)
+    test_multiple_combinations(price_data_path, begin, finish)
