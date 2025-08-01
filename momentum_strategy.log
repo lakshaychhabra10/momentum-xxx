@@ -1,0 +1,20 @@
+2025-07-23 11:51:42,388 - INFO - Starting processing... Total Combinations : 1 , Total Batches : 1 , Batch Size : 100, Break Batch at : Batch None
+2025-07-23 11:51:47,712 - INFO - Successfully processed 100-85-95-pct0.4-ceiling1800 in batch 1
+2025-07-23 12:04:09,032 - INFO - Starting processing... Total Combinations : 1 , Total Batches : 1 , Batch Size : 100, Break Batch at : Batch None
+2025-07-23 12:04:18,571 - INFO - Successfully processed 10-85-95-pct0.4-ceiling1800 in batch 1
+2025-08-01 20:09:25,217 - INFO - Starting processing... Total Combinations : 1 , Total Batches : 1 , Batch Size : 100, Break Batch at : Batch None
+2025-08-01 20:09:27,803 - WARNING - No valid strategy results in batch 1
+2025-08-01 20:09:27,803 - WARNING - Failed or empty strategies in batch 1: ['35-85-55-pct0.1-ceiling500000']
+2025-08-01 20:13:33,688 - INFO - Starting processing... Total Combinations : 1 , Total Batches : 1 , Batch Size : 100, Break Batch at : Batch None
+2025-08-01 20:13:35,814 - WARNING - No valid strategy results in batch 1
+2025-08-01 20:13:35,815 - WARNING - Failed or empty strategies in batch 1: ['35-85-55-pct0.1-ceiling500000']
+2025-08-01 20:24:51,036 - INFO - Starting processing... Total Combinations : 1 , Total Batches : 1 , Batch Size : 100, Break Batch at : Batch None
+2025-08-01 20:24:53,052 - WARNING - No valid strategy results in batch 1
+2025-08-01 20:24:53,053 - WARNING - Failed or empty strategies in batch 1: ['35-85-55-pct0.1-ceiling500000']
+2025-08-01 20:25:54,629 - INFO - Starting processing... Total Combinations : 1 , Total Batches : 1 , Batch Size : 100, Break Batch at : Batch None
+2025-08-01 20:25:56,520 - WARNING - No valid strategy results in batch 1
+2025-08-01 20:25:56,520 - WARNING - Failed or empty strategies in batch 1: ['35-85-55-pct0.1-ceiling500000']
+2025-08-01 20:27:47,947 - INFO - Starting processing... Total Combinations : 1 , Total Batches : 1 , Batch Size : 100, Break Batch at : Batch None
+2025-08-01 20:27:51,247 - INFO - Successfully processed 35-85-55-pct0.1-ceiling500000 in batch 1
+2025-08-01 20:31:18,101 - INFO - Starting processing... Total Combinations : 1 , Total Batches : 1 , Batch Size : 100, Break Batch at : Batch None
+2025-08-01 20:31:21,425 - INFO - Successfully processed 35-85-55-pct0.1-ceiling500000 in batch 1
